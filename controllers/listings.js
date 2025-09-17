@@ -1,7 +1,10 @@
 const { response } = require("express");
 const Listing = require("../models/listing.js");
 const mbxGeocoding = require('@mapbox/mapbox-sdk/services/geocoding');
-const mapToken = process.env.MAP_TOKEN;
+const mapToken = process.env.MAP_TOKEN;  // ✅ use MAPBOX_TOKEN
+if (!mapToken) {
+    throw new Error("❌ Missing Mapbox token! Set MAP_TOKEN in your .env or Render Environment Variables.");
+}
 const geocodingClient = mbxGeocoding({ accessToken: mapToken });
 
 module.exports.index = async (req, res) => {

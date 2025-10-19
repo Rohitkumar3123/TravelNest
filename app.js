@@ -24,13 +24,9 @@ const userRouter = require("./routes/user.js");
 // DB connection
 const dbUrl = process.env.ATLASDB_URL;
 
-main()
+mongoose.connect(dbUrl)
     .then(() => console.log("✅ Connected to DB"))
     .catch((err) => console.log("❌ DB Error:", err));
-
-async function main() {
-    await mongoose.connect(dbUrl);
-}
 
 // View engine + middleware
 app.engine("ejs", ejsMate);
@@ -39,7 +35,7 @@ app.set("views", path.join(__dirname, "views"));
 
 app.use(express.urlencoded({ extended: true }));
 app.use(methodOverride("_method"));
-app.use(express.static(path.join(__dirname, "/public")));
+app.use(express.static(path.join(__dirname, "public")));
 
 // Session store
 const store = MongoStore.create({
@@ -78,8 +74,7 @@ passport.deserializeUser(User.deserializeUser());
 app.use((req, res, next) => {
     res.locals.success = req.flash("success");
     res.locals.error = req.flash("error");
-    res.locals.currUser = req.user || null; // Always define currUser
-    // console.log("Current user:", req.user); // Debug (optional)
+    res.locals.currUser = req.user || null;
     next();
 });
 
@@ -87,18 +82,6 @@ app.use((req, res, next) => {
 app.use("/listings", listingRouter);
 app.use("/listings/:id/reviews", reviewRouter);
 app.use("/", userRouter);
-
-// Demo route (optional)
-/*
-app.get("/demouser", async (req, res) => {
-    let fakeUser = new User({
-        email: "student@gmail.com",
-        username: "delta-student",
-    });
-    let registeredUser = await User.register(fakeUser, "helloworld");
-    res.send(registeredUser);
-});
-*/
 
 // 404 handler
 app.all("*", (req, res, next) => {
@@ -112,5 +95,5 @@ app.use((err, req, res, next) => {
 });
 
 app.listen(3002, () => {
-    console.log("🚀 Server is listening on port 3000");
+    console.log("🚀 Server is listening on port 3002");
 });

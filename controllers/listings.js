@@ -1,11 +1,15 @@
-const { response } = require("express");
-const Listing = require("../models/listing.js");
+const Listing = require("../models/listing");
 const mbxGeocoding = require('@mapbox/mapbox-sdk/services/geocoding');
+<<<<<<< HEAD
 const mapToken = process.env.MAP_TOKEN;  // ✅ use MAPBOX_TOKEN
 if (!mapToken) {
     throw new Error("❌ Missing Mapbox token! Set MAP_TOKEN in your .env or Render Environment Variables.");
 }
 const geocodingClient = mbxGeocoding({ accessToken: mapToken });
+=======
+const mapToken = process.env.MAPBOX_TOKEN;
+const geocodingClient = mbxGeocoding({accessToken: mapToken});
+>>>>>>> 372d9c7 (Initial commit)
 
 module.exports.index = async (req, res) => {
     const allListings = await Listing.find({});
@@ -18,70 +22,183 @@ module.exports.renderNewForm = (req, res) => {
 
 module.exports.showListing = async (req, res) => {
     let { id } = req.params;
-    const listing = await Listing.findById(id).populate({
-        path: "reviews", populate: {
-            path: "author",
-        },
-    }).populate("owner");
+    const listing = await Listing.findById(id)
+        .populate({
+            path: "reviews",
+            populate: {
+                path: "author",
+            }
+        })
+        .populate("owner");
+    
     if (!listing) {
-        req.flash("error", "Listing you requested doesn't exist!");
+        req.flash("error", "Listing you requested for does not exist!");
         return res.redirect("/listings");
     }
-    console.log(listing);
-    res.render("listings/show.ejs", { listing })
+    
+    res.render("listings/show.ejs", { listing });
 };
 
 module.exports.createListing = async (req, res, next) => {
-    let response  = await geocodingClient.forwardGeocode({
+    let response = await geocodingClient.forwardGeocode({
         query: req.body.listing.location,
         limit: 1
-    })
-        .send()
+      })
+    .send();
+
     let url = req.file.path;
     let filename = req.file.filename;
-    const newlisting = new Listing(req.body.listing);
-    newlisting.owner = req.user._id;
-    newlisting.image = { url, filename };
-    newlisting.geometry = response.body.features[0].geometry;
-    let saveListing = await newlisting.save();
-    console.log(saveListing);
-    req.flash("success", "New Listing Created!");
+    const newListing = new Listing(req.body.listing);
+    newListing.owner = req.user._id;
+    newListing.image = { url, filename };
+
+    newListing.geometry = response.body.features[0].geometry;
+
+    let savedListing = await newListing.save();
+    console.log(savedListing);
+    req.flash("success", "New Listing Created");
     res.redirect("/listings");
-};
+}
 
 module.exports.renderEditForm = async (req, res) => {
     let { id } = req.params;
     const listing = await Listing.findById(id);
     if (!listing) {
-        req.flash("error", "Listing you requested doesn't exist!");
-        return res.redirect("/listings");
+        req.flash("error", "Listing you requested for does not exist!");
+        res.redirect("/listings");
     }
+
     let originalImageUrl = listing.image.url;
-    originalImageUrl=originalImageUrl.replace("/upload","/upload/w_250")
-    res.render("listings/edit.ejs", { listing,originalImageUrl });
-};
+    originalImageUrl = originalImageUrl.replace("/upload", "/upload/w_250")
+
+    res.render("listings/edit.ejs", { listing, originalImageUrl });
+}
 
 module.exports.updateListing = async (req, res) => {
-    if (!req.body.listing) {
-        throw new ExpressError(400, "Send valid data for listing");
-    }
     let { id } = req.params;
-    // Update the listing
-    let listing = await Listing.findByIdAndUpdate(id, req.body.listing);
-    if (typeof req.file!=="undefined") {
+    let coordinate = await geocodingClient.forwardGeocode({
+        query: `${req.body.listing.location},${req.body.listing.country}`,
+        limit: 2
+    })
+      .send();
+
+    req.body.listing.geometry = coordinate.body.features[0].geometry;
+
+    let listing = await Listing.findByIdAndUpdate(id, { ...req.body.listing });
+
+    if (typeof req.file !== "undefined") {
         let url = req.file.path;
         let filename = req.file.filename;
         listing.image = { url, filename };
         await listing.save();
     }
-    req.flash("success", "Listing Updated!");
+
+    req.flash("success", "Listing Updated");
     res.redirect(`/listings/${id}`);
-};
+}
+
+module.exports.filterListings = async (req, res, next) => {
+    const { q } = req.params;
+    const filteredListings = await Listing.find({category: q }).exec();
+    if (!filteredListings.length) {
+        req.flash("error", "No Listings exists for this filter!");
+        res.redirect("/listings");
+        return;
+    }
+    res.locals.success = `Listings Filtered by ${q}`;
+    res.render("listings/index.ejs", { allListings: filteredListings });
+}
 
 module.exports.destroyListing = async (req, res) => {
     let { id } = req.params;
-    const deletedlisting = await Listing.findByIdAndDelete(id);
-    console.log(deletedlisting);
-    req.flash("success", "Listing Deleted!");
+    let deletedListing = await Listing.findByIdAndDelete(id);
+    console.log(deletedListing);
+    req.flash("success", "Listing Deleted");
     res.redirect("/listings");
+<<<<<<< HEAD
 };
+=======
+}
+
+module.exports.search = async(req, res) => {
+    console.log(req.query.q);
+    let input = req.query.q.trim().replace(/\s+/g, " "); //remove start and end space
+    console.log(input);
+    if(input == "" || input == " "){
+        //search value is empty
+        req.flash("error", "Search value empty!!!");
+        res.redirect("/listings");
+    }
+
+    //convert every word first letter capital and other small
+    let data = input.split("");
+    let element = "";
+    let flag = false;
+    for(let index = 0; index < data.length; index++) {
+        if (index == 0 || flag) {
+            element = element + data[index].toUpperCase();
+        } else {
+            element = element + data[index].toLowerCase();
+        }
+        flag = data[index] == " ";
+    }
+    console.log(element);
+
+    let allListings = await Listing.find({
+        title: { $regex: element, $options: "i"},
+    });
+    if(allListings.length !=0 ){
+        res.locals.success = "Listings searched by title";
+        res.render("listings/index.ejs", {allListings});
+        return;
+    }
+    if(allListings.length == 0){
+        allListings = await Listing.find({
+            category: { $regex: element, $options: "i"},
+        }).sort({_id: -1});
+        if(allListings.length != 0) {
+            res.locals.success = "Listings searched by category";
+            res.render("listings/index.ejs", {allListings});
+            return;
+        }
+    }
+    if(allListings.length == 0) {
+        allListings = await Listing.find({
+            country: { $regex: element, $options: "i"},
+        }).sort({_id: -1});
+        if(allListings.length != 0) {
+            res.locals.success = "Listings searched by country";
+            res.render("listings/index.ejs", {allListings});
+            return;
+        }
+    }
+    if(allListings.length == 0) {
+        allListings = await Listing.find({
+            location: { $regex: element, $options: "i"},
+        }).sort({_id: -1});
+        if(allListings.length != 0) {
+            res.locals.success = "Listings searched by location";
+            res.render("listings/index.ejs", {allListings});
+            return;
+        }
+    }
+
+    const intValue = parseInt(element, 10); //10 for decimal return - int ya NaN
+    const intDec = Number.isInteger(intValue); //check intValue is number or not
+
+    if(allListings.length == 0 && intDec) {
+        allListings = await Listing.find({ price: { $lte: element }}).sort({
+            price: 1,
+        });
+        if(allListings.length != 0) {
+            res.locals.success = `Listings searched for less than Rs ${element}`;
+            res.render("listings/index.ejs", { allListings });
+            return;
+        }
+    }
+    if(allListings.length == 0) {
+        req.flash("error", "Listings is not here !!!");
+        res.redirect("/listings");
+    }
+}
+>>>>>>> 372d9c7 (Initial commit)
